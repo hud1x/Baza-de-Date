@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fisa Medicală - Încărcare, Vizualizare și Ștergere Fișiere</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            width: 100%;
+        }
+        .container {
+            max-width: 1200px;
+            width: 70%;
+            margin: 0 auto;
+        }
+        .form-container, .file-table-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .form-container h2, .file-table-container h2 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="file"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+        .delete-btn:hover {
+            background-color: #e53935;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .delete-link {
+            color: #f44336;
+            text-decoration: none;
+        }
+        .delete-link:hover {
+            text-decoration: underline;
+        }
+        .search-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-container input {
+            width: 80%;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        /* Stil pentru imaginea din dreapta */
+        .image-container {
+            width: 25%;
+            padding: 20px;
+        }
+        .image-container img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+    </style>
+
+    <!-- Include jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- Secțiunea de încărcare fișier -->
+        <div class="form-container">
+            <h2>Adaugă o Fișă Medicală</h2>
+            <form id="uploadForm">
+                <label for="id_pacient">ID Pacient:</label>
+                <input type="text" id="id_pacient" name="id_pacient" placeholder="Introduceți ID-ul pacientului" required>
+
+                <label for="tip_fisa">Tip Fișă:</label>
+                <input type="text" id="tip_fisa" name="tip_fisa" placeholder="Introduceți tipul fișei" required>
+
+                <label for="fisa">Selectează Fișierul:</label>
+                <input type="file" id="fisa" name="fisa" required>
+
+                <button type="submit">Încarcă Fișier</button>
+            </form>
+        </div>
+
+        <!-- Secțiunea de căutare fișiere -->
+        <div class="search-container">
+            <h2>Căutare Fișă Medicală</h2>
+            <input type="text" id="search" placeholder="Căutare după tipul fișei sau ID pacient">
+        </div>
+
+        <!-- Secțiunea de vizualizare fișiere -->
+        <div class="file-table-container">
+            <h2>Fișiere Medicale Încărcate</h2>
+            <table id="fileTable">
+                <thead>
+                    <tr>
+                        <th>ID Fișă</th>
+                        <th>Tip Fișă</th>
+                        <th>ID Pacient</th>
+                        <th>Data Adăugării</th>
+                        <th>Acțiuni</th>
+                    </tr>
+                </thead>
+                <tbody id="file-list">
+                    <!-- Rânduri generate dinamic cu JavaScript -->
+                </tbody>
+            </table>
+            <!-- Buton pentru salvarea fișierului -->
+            <button id="saveDataButton">Salvează Fișierul PDF</button>
+        </div>
+
+    </div>
+
+    <!-- Secțiunea de imagine -->
+    <div class="image-container">
+        <img src="https://cdn.discordapp.com/attachments/1230541139208179753/1319507514081153136/Leonardo_Phoenix_09_Create_an_image_featuring_the_Smurd_logo_f_3.jpg?ex=676636a2&is=6764e522&hm=4172e1c77a6c24cb5e579d2ae00f4902c0bff468d50fe89d38956bd03fca82cd&">
+    </div>
+
+    <!-- JavaScript pentru gestionarea fișierelor și ștergerea lor -->
+    <script>
+        // Preluăm fișierele salvate din localStorage la încărcarea paginii
+        let fileData = JSON.parse(localStorage.getItem('fileData')) || [];
+
+        // Functia pentru a actualiza tabelul
+        function updateTable() {
+            const tableBody = document.getElementById('file-list');
+            tableBody.innerHTML = ''; // Curățăm tabelul înainte de a adăuga date noi
+
+            // Filtrăm fișierele pentru a exclude Cardiologie și Dermatologie
+            const filteredData = fileData.filter(file => file.tip_fisa.toLowerCase() !== 'cardiologie' && file.tip_fisa.toLowerCase() !== 'dermatologie');
+
+            filteredData.forEach((file, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${file.id}</td>
+                    <td>${file.tip_fisa}</td>
+                    <td>${file.id_pacient}</td>
+                    <td>${file.data_adaugare}</td>
+                    <td>
+                        <button onclick="downloadFile(${index})">Descarcă</button>
+                        <a href="#" class="delete-link" onclick="deleteFile(${index})">Șterge</a>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Funcția de ștergere a fișierului
+        function deleteFile(index) {
+            fileData.splice(index, 1); // Elimină fișierul din array
+            localStorage.setItem('fileData', JSON.stringify(fileData)); // Salvează din nou în localStorage
+            updateTable(); // Actualizează tabelul
+        }
+
+        // Eveniment pentru formularul de încărcare a fișierului
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const id_pacient = document.getElementById('id_pacient').value;
+            const tip_fisa = document.getElementById('tip_fisa').value;
+            const fisa = document.getElementById('fisa').files[0];
+
+            // Adăugăm fișierul în array
+            const newFile = {
+                id: fileData.length + 1,
+                tip_fisa: tip_fisa,
+                id_pacient: id_pacient,
+                data_adaugare: new Date().toLocaleDateString(),
+                file: fisa // Stocăm fișierul încărcat
+            };
+
+            fileData.push(newFile);
+            localStorage.setItem('fileData', JSON.stringify(fileData)); // Salvăm fișierul în localStorage
+            updateTable(); // Actualizăm tabelul cu fișierele noi
+        });
+
+        // Funcționalitatea de căutare
+        document.getElementById('search').addEventListener('input', function(event) {
+            const searchValue = event.target.value.toLowerCase();
+            const rows = document.querySelectorAll('#file-list tr');
+            rows.forEach(function(row) {
+                const cells = row.querySelectorAll('td');
+                const idFișă = cells[0].textContent.toLowerCase();
+                const tipFișă = cells[1].textContent.toLowerCase();
+                const idPacient = cells[2].textContent.toLowerCase();
+
+                if (idFișă.includes(searchValue) || tipFișă.includes(searchValue) || idPacient.includes(searchValue)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Funcția de descărcare a fișierului
+        function downloadFile(index) {
+            const file = fileData[index].file;
+
+            // Cream un URL temporar pentru fișier
+            const blob = new Blob([file], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+
+            // Cream un link pentru a declanșa descărcarea
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.name; // Numele fișierului
+            document.body.appendChild(link);
+            link.click(); // Simulăm un click pentru a începe descărcarea
+            document.body.removeChild(link); // Curățăm linkul
+        }
+
+        // Inițializare tabel la încărcarea paginii
+        updateTable();
+    </script>
+
+</body>
+</html>
